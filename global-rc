@@ -1,2 +1,2 @@
 export REGISTRY_URL="registry.k8slab.int/tcpdump"
-export IMAGE_NAME="tcpdump:0.0.5"
+export IMAGE_NAME="tcpdump:0.0.6"
