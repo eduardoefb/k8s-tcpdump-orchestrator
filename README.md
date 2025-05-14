@@ -1,27 +1,31 @@
 # k8s-tcpdump-orchestrator
 
-A Kubernetes-native tool to remotely launch, monitor, stop, and collect `tcpdump` sessions across multiple pods and namespaces using Jobs. Ideal for debugging network behavior in distributed environments.
+A Kubernetes-native tool to remotely launch, monitor, stop, and collect `tcpdump` sessions across multiple pods and namespaces using Jobs. Ideal for debugging network behavior in distributed environments. Includes a CLI mode and a Web UI orchestration interface.
 
 ---
 
-## 📦 Tcpdump Container Image
+## 📦 Tcpdump & Orchestrator Images
 
-To build and upload the tcpdump image to your Harbor registry:
+To build and upload the tcpdump and orchestrator images to your Harbor registry:
 
 ```bash
+cwd=${PWD}
 cd images/tcpdump
+bash create_image.sh
+cd ${cwd}
+cd images/orchestrator
 bash create_image.sh
 ```
 
-Make sure your script builds the image and pushes it to a registry accessible by your Kubernetes cluster.
+Make sure your scripts push to a registry accessible by your Kubernetes cluster.
 
 ---
 
-## 🚀 Usage
+## 🚀 CLI Usage (`monitor.sh`)
 
-### Start monitoring multiple pods
+### Start monitoring specific pods
 
-Each of the following commands launches a tcpdump Job on the **same node** where the specified pod is running, but in the chosen Job namespace:
+Each command will launch a tcpdump Job in the specified `--job-namespace` targeting the node of the specified pod:
 
 ```bash
 ./monitor.sh --pod-name plmna-nrf-0 --namespace plmna --job-namespace default
@@ -29,81 +33,101 @@ Each of the following commands launches a tcpdump Job on the **same node** where
 ./monitor.sh --pod-name plmnb-scp-0 --namespace plmnb --job-namespace default
 ```
 
-> ⚠️ Note: The pod name/namespace refer to the target pod to monitor. The job will run in the namespace passed via `--job-namespace`.
-
 ---
 
-### Check the current status
+### Monitor status
 
 ```bash
 ./monitor.sh --status
 ```
 
-This shows whether `tcpdump` is currently running, has finished, or if the job no longer exists.
+Shows which pods are still running tcpdump or have finished.
 
 ---
 
-### Stop all running tcpdump sessions
+### Stop tcpdump in all tracked pods
 
 ```bash
 ./monitor.sh --stop-tcpdump
 ```
 
-This will remove the control file inside the pod, causing the running `tcpdump` to terminate gracefully.
+Stops capture gracefully by deleting control files in pods.
 
 ---
 
-### Collect captured files
+### Download and merge all PCAP files
 
 ```bash
 ./monitor.sh --get-files
 ```
 
-Downloads all captured `.pcap` files from each job into a temporary local directory, then merges them using `mergecap` into a single file:
-```
-merged_all.pcap
-```
-
-> Original files are preserved. Requires `mergecap` to be installed (from Wireshark CLI tools).
+- Downloads all `.pcap` files into a temporary directory
+- Merges them using `mergecap` into `merged_all.pcap`
+- Retains original files
 
 ---
 
-### Reset job tracking
+### Reset internal job tracking
 
 ```bash
 ./monitor.sh --reset
 ```
 
-Clears the internal job tracking list (`jobs.list`) to start fresh.
+Clears the internal `jobs.list`.
+
+---
+
+## 🌐 Web UI Deployment
+
+You can also deploy the orchestrator as a Web UI with the included Kubernetes manifest:
+
+```bash
+kubectl apply -f orchestrator_deploy.yaml
+```
+
+This will:
+- Create the namespace: `tcpdump-orchestrator`
+- Deploy a single replica pod with a Flask app
+- Expose it on port 80 via a `LoadBalancer` service
+- Provide RBAC access to manage jobs and monitor pods
+
+Once deployed, access the UI via the external IP of the service.
 
 ---
 
 ## ✅ Requirements
 
-- `kubectl` access to the cluster
-- `mergecap` (from [Wireshark CLI](https://www.wireshark.org/docs/man-pages/mergecap.html)) for file merging
+- `kubectl` configured to access your cluster
+- `mergecap` installed (`sudo apt install wireshark-common`)
+- `podman` and `buildah` for image building
 - Kubernetes >= 1.18
 
 ---
 
-## 📁 Structure
+## 📁 Project Structure
 
 ```
 .
-├── monitor.sh              # Main script to orchestrate tcpdump jobs
-├── job_template.yaml       # Kubernetes Job YAML template
-├── jobs.list               # (Auto-generated) Tracks all jobs
+├── monitor.sh                # Main CLI script
+├── job_template.yaml         # Job spec used to launch tcpdump
+├── jobs.list                 # Internal list of monitored pods/jobs
+├── orchestrator_deploy.yaml # Web UI deployment manifest
+├── traces/                   # Directory for downloaded pcap files
 └── images/
-    └── tcpdump/
-        └── create_image.sh # Builds tcpdump image
+    ├── tcpdump/              # Tcpdump image Dockerfile & create script
+    └── orchestrator/         # Web UI Flask app image
 ```
 
 ---
 
 ## 🔒 Notes
 
-- The container uses `hostPID: true` to access host-level process IDs for tcpdump filtering.
-- Make sure RBAC and PodSecurityPolicy (if used) allow privileged jobs and host access.
+- The tcpdump jobs run with `hostPID: true` and require `privileged: true`
+- The Web UI pod auto-discovers its own namespace for orchestrating jobs
+- RBAC permissions are scoped properly for reading pods and creating jobs
 
+---
 
+## 🧠 Inspiration
 
+Built for platform and SRE engineers who need a lightweight, automated, and namespace-aware solution to perform on-demand packet captures across multiple pods in Kubernetes clusters — without deploying sidecars or manually attaching to nodes.

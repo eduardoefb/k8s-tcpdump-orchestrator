@@ -33,7 +33,7 @@ while true; do
 done
 
 # Kill tcpdump:
-ps aux | grep 'nsenter.*tcpdump' | grep -v grep | awk '{print $2}' | xargs -r kill -9
+ps aux | grep 'tcpdump.*pcap' | grep -v grep | awk '{print $2}' | xargs -r kill 
 
 
 # Wait until files are not yet downloaded

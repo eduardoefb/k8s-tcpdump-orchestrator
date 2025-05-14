@@ -1,6 +1,9 @@
 #!/bin/bash
 set -e
-source global-rc
+if [ -f lgobal-rc ]; then 
+    source global-rc
+fi
+
 export TEMPLATE="templates/job_template.yaml"
 export TMP_JOB_YAML="$(mktemp)"
 export TMP_DIR="${PWD}/traces"

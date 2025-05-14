@@ -1,0 +1,118 @@
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: tcpdump-orchestrator
+
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: tcpdump-orchestrator-sa
+  namespace: tcpdump-orchestrator
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  namespace: tcpdump-orchestrator
+  name: tcpdumpOrchestratorRole
+rules:
+  - apiGroups: [""]
+    resources: ["pods", "pods/exec", "pods/log", "namespaces"]
+    verbs: ["get", "list"]
+  - apiGroups: ["batch"]
+    resources: ["jobs"]
+    verbs: ["create", "delete", "get", "list"]
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: tcpdumpOrchestratorClusterRole
+rules:
+- apiGroups: [""]
+  resources: ["pods", "namespaces"]
+  verbs: ["list", "get"]
+
+---
+
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: tcpdumpOrchestratorClusterRoleBinding
+  namespace: tcpdump-orchestrator
+subjects:
+- kind: ServiceAccount
+  name: tcpdump-orchestrator-sa
+  namespace: tcpdump-orchestrator
+roleRef:
+  kind: ClusterRole
+  name: tcpdumpOrchestratorClusterRole
+  apiGroup: rbac.authorization.k8s.io
+
+---
+
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: tcpdumpOrchestratorRoleBinding
+  namespace: tcpdump-orchestrator
+subjects:
+  - kind: ServiceAccount
+    name: tcpdump-orchestrator-sa
+    namespace: tcpdump-orchestrator
+roleRef:
+  kind: Role
+  name: tcpdumpOrchestratorRole
+  apiGroup: rbac.authorization.k8s.io
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: tcpdump-orchestrator
+  namespace: tcpdump-orchestrator
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: tcpdump-orchestrator
+  template:
+    metadata:
+      labels:
+        app: tcpdump-orchestrator
+    spec:
+      serviceAccountName: tcpdump-orchestrator-sa
+      containers:
+        - name: flask-app
+          image: registry.k8slab.int/tcpdump/orchestrator:0.0.6
+          imagePullPolicy: Always
+          env:
+          - name: REGISTRY_URL
+            value: "registry.k8slab.int/tcpdump"
+          - name: TCPDUMP_IMAGE_NAME
+            value: "tcpdump:0.0.6"
+          ports:
+            - containerPort: 5000
+          volumeMounts:
+            - name: traces
+              mountPath: /app/traces
+      volumes:
+        - name: traces
+          emptyDir: {}
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: tcpdump-orchestrator-service
+  namespace: tcpdump-orchestrator
+spec:
+  selector:
+    app: tcpdump-orchestrator
+  type: LoadBalancer
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 5000
