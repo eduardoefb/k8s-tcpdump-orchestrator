@@ -1,6 +1,6 @@
 #!/bin/bash
 set -e
-if [ -f lgobal-rc ]; then 
+if [ -f global-rc ]; then 
     source global-rc
 fi
 
@@ -19,8 +19,23 @@ usage() {
     echo "  $0 --status"
     echo "  $0 --get-files"
     echo "  $0 --stop-tcpdump"
+    echo "  $0 --clear-files"
     echo "  $0 --reset"
     exit 1
+}
+
+clear_pcap_files() {
+    local cwd=${PWD}
+
+    if cd "${TMP_DIR}"; then
+        cd ${TMP_DIR}
+        find . -type f -name '*.pcap' -exec rm -f {} \;
+        find . -depth -mindepth 1 -type d -empty -exec rmdir -v {} \;
+        echo "[INFO] ${TMP_DIR} cleared."
+        cd "${cwd}"
+    else
+        echo "[ERROR] Failed to change directory to ${TMP_DIR}" >&2
+    fi
 }
 
 add_to_job_list() {
@@ -124,11 +139,13 @@ get_all_files() {
     echo "[INFO] All files collected in ${TMP_DIR}"
     reset_job_list
 
-    echo "[INFO] Merging all .pcap files into ${TMP_DIR}/merged_all.pcap"
+    date_str=`date +'%Y%m%d%H%M%S'`
+    random_str=`openssl rand -hex 3`
+    echo "[INFO] Merging all .pcap files into ${TMP_DIR}/${date_str}_${random_str}_merged_all.pcap"
     PCAP_LIST=$(find "${TMP_DIR}" -type f -name '*.pcap')
     if [[ -n "${PCAP_LIST}" ]]; then
-        mergecap -w "${TMP_DIR}/merged_all.pcap" ${PCAP_LIST}
-        echo "[INFO] Merged file created: ${TMP_DIR}/merged_all.pcap"
+        mergecap -w "${TMP_DIR}/${date_str}_${random_str}_merged_all.pcap" ${PCAP_LIST}
+        echo "[INFO] Merged file created: ${TMP_DIR}/${date_str}_${random_str}_merged_all.pcap"
     else
         echo "[WARN] No .pcap files found to merge."
     fi
@@ -147,6 +164,7 @@ while [[ "$#" -gt 0 ]]; do
         --job-namespace) JOB_NAMESPACE="$2"; shift ;;
         --status) MODE="status" ;;
         --get-files) MODE="getpcap" ;;
+        --clear-files) MODE="clear" ;;
         --stop-tcpdump) MODE="stop" ;;
         --reset) MODE="reset" ;;
         *) usage ;;
@@ -163,6 +181,8 @@ elif [[ "${MODE}" == "getpcap" ]]; then
     get_all_files    
 elif [[ "${MODE}" == "stop" ]]; then
     stop_all_tcpdumps
+elif [[ "${MODE}" == "clear" ]]; then
+    clear_pcap_files    
 elif [[ "${MODE}" == "reset" ]]; then
     reset_job_list
 else

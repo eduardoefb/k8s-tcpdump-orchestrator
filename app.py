@@ -55,6 +55,9 @@ HTML_MENU = """
 <form method="post" action="/status">
   <input type="submit" value="Check Status">
 </form>
+<form method="post" action="/clear">
+  <input type="submit" value="Clear Files">
+</form>
 <form method="post" action="/stop">
   <input type="submit" value="Stop and Download All">
 </form>
@@ -126,6 +129,11 @@ def launch_jobs():
 def status():
     output = run_cmd(f"{MONITOR_SCRIPT} --status")
     return wrap(render_template_string(HTML_MENU, namespaces=get_namespaces(), output=output))
+
+@app.route("/clear", methods=["POST"])
+def clear():
+    output = run_cmd(f"{MONITOR_SCRIPT} --clear-files")
+    return wrap(render_template_string(HTML_MENU, namespaces=get_namespaces(), output=output))    
 
 @app.route("/stop", methods=["POST"])
 def stop():
