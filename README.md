@@ -111,7 +111,8 @@ Once deployed, access the UI via the external IP of the service.
 ├── monitor.sh                # Main CLI script
 ├── job_template.yaml         # Job spec used to launch tcpdump
 ├── jobs.list                 # Internal list of monitored pods/jobs
-├── orchestrator_deploy.yaml # Web UI deployment manifest
+├── app.py                    # Flask app used by the Web UI to manage tcpdump jobs via monitor.sh
+├── orchestrator_deploy.yaml  # Web UI deployment manifest
 ├── traces/                   # Directory for downloaded pcap files
 └── images/
     ├── tcpdump/              # Tcpdump image Dockerfile & create script
