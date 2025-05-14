@@ -126,8 +126,5 @@ Once deployed, access the UI via the external IP of the service.
 - The Web UI pod auto-discovers its own namespace for orchestrating jobs
 - RBAC permissions are scoped properly for reading pods and creating jobs
 
----
 
-## 🧠 Inspiration
 
-Built for platform and SRE engineers who need a lightweight, automated, and namespace-aware solution to perform on-demand packet captures across multiple pods in Kubernetes clusters — without deploying sidecars or manually attaching to nodes.
