@@ -16,6 +16,8 @@ data:
       ttlSecondsAfterFinished: 30
       template:
         metadata:
+          annotations:
+            sidecar.istio.io/inject: "false"
           labels:
             app: tcpdump
             tcpdump-target-pod: ${POD_NAME}
