@@ -24,7 +24,9 @@ create() {
     CWD=${PWD}
     cd helm
     helm package ${HELM_CHART_NAME}
+    set +e
     helm repo remove ${HARBOR_PROJECT} &>/dev/null
+    set -e
     helm repo add  --username ${HARBOR_USER} --password ${HARBOR_PASS} ${HARBOR_PROJECT} https://${HARBOR_URL}/chartrepo/${HARBOR_PROJECT}
     helm cm-push ${HELM_CHART_NAME}-${HELM_VERSION}.tgz ${HARBOR_PROJECT}
     helm repo update
