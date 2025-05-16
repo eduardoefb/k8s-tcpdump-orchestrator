@@ -1,0 +1,41 @@
+# Gitlabci file
+
+
+stages:
+  - deploy_stage
+  - terminate_stage
+  
+variables:
+  DEPLOY_DIR: tcpdump
+
+cleanup:
+  stage: cleanup_stage
+  script:
+    - rm -rf ${DEPLOY_DIR} || true
+    - git clone https://gitlab.cloud.int/lab/k8s-tcpdump-orchestrator.git ${DEPLOY_DIR} --branch main
+    - cd ${DEPLOY_DIR}
+    - bash run.sh destroy
+  only:
+    - main 
+ 
+deploy:
+  stage: deploy_stage
+  script:    
+    - rm -rf ${DEPLOY_DIR} || true
+    - git clone https://gitlab.cloud.int/lab/k8s-tcpdump-orchestrator.git ${DEPLOY_DIR} --branch main
+    - cd ${DEPLOY_DIR}
+    - bash run.sh create
+  only:
+    - main
+
+
+terminate:
+  stage: terminate_stage
+  script:
+    - rm -rf ${DEPLOY_DIR} || true
+    - git clone https://gitlab.cloud.int/lab/k8s-tcpdump-orchestrator.git ${DEPLOY_DIR} --branch main
+    - cd ${DEPLOY_DIR}
+    - bash run.sh destroy
+  only:
+    - main
+  when: manuals

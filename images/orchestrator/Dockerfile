@@ -5,7 +5,7 @@ RUN mkdir /app/templates/
 
 COPY app.py /app/app.py
 COPY monitor.sh /app/monitor.sh
-COPY job_template.yaml /app/templates/job_template.yaml
+# COPY job_template.yaml /app/templates/job_template.yaml
 
 RUN apt-get update && apt-get install -y curl iputils-ping procps gettext wireshark-common \
     && pip install --no-cache-dir flask 

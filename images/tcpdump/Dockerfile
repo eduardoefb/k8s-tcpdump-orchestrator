@@ -7,7 +7,7 @@ ENV DEBIAN_FRONTEND=noninteractive \
     VERSION="v1.32.0"
     
 RUN  DEBIAN_FRONTEND=noninteractive apt-get update && \
-     DEBIAN_FRONTEND=noninteractive apt-get -y install tcpdump iproute2 wget jq curl vim procps
+     DEBIAN_FRONTEND=noninteractive apt-get -y install tcpdump iproute2 wget jq curl procps
     
 RUN  wget https://github.com/kubernetes-sigs/cri-tools/releases/download/${VERSION}/crictl-${VERSION}-linux-amd64.tar.gz &&\
      tar zxvf crictl-${VERSION}-linux-amd64.tar.gz -C /usr/local/bin && \

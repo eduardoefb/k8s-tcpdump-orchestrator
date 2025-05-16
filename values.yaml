@@ -1,0 +1,19 @@
+replicaCount: 1
+
+global:
+  domain: "k8slab.int"
+
+orchestrator:
+  name: orc8r
+
+image:
+  registryUrl: registry.k8slab.int/tcpdump
+  orchestratorImageName: orchestrator:0.0.6
+  tcpdumpImageName: tcpdump:0.0.6
+
+  #pullPolicy: IfNotPresent
+  pullPolicy: Always
+  tag: ""
+
+imagePullSecret: tcpdump-orchestrator
+

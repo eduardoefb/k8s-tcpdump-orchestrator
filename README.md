@@ -1,3 +1,4 @@
+
 # k8s-tcpdump-orchestrator
 
 A Kubernetes-native tool to remotely launch, monitor, stop, and collect `tcpdump` sessions across multiple pods and namespaces using Jobs. Ideal for debugging network behavior in distributed environments. Includes a CLI mode and a Web UI orchestration interface.
@@ -95,6 +96,40 @@ Once deployed, access the UI via the external IP of the service.
 
 ---
 
+## ⚙️ Helm & Terraform Deployment
+
+To automate the build and deployment process of the orchestrator using **Helm** and **Terraform**, a helper script `script.sh` is provided.
+
+### Prerequisites
+
+- Vault properly configured with Harbor credentials at `secret/data/harbor-credentials`
+- `tofu` (Terraform OpenTofu CLI)
+- Access to your Kubernetes cluster via `kubectl`
+- `helm`, `helm-push` plugin (`cm-push`)
+- `podman` and `buildah` for image builds
+
+### Available commands
+
+```bash
+./script.sh create
+```
+
+This will:
+1. Build the `tcpdump` and `orchestrator` container images
+2. Push the Helm chart to your Harbor registry
+3. Deploy the orchestrator using Terraform (includes Helm chart installation)
+
+To destroy the deployment:
+
+```bash
+./script.sh destroy
+```
+
+This will:
+- Fully remove the orchestrator deployment (Terraform destroy)
+
+---
+
 ## ✅ Requirements
 
 - `kubectl` configured to access your cluster
@@ -113,6 +148,7 @@ Once deployed, access the UI via the external IP of the service.
 ├── jobs.list                 # Internal list of monitored pods/jobs
 ├── app.py                    # Flask app used by the Web UI to manage tcpdump jobs via monitor.sh
 ├── orchestrator_deploy.yaml  # Web UI deployment manifest
+├── script.sh                 # Script for Helm + Terraform deployment
 ├── traces/                   # Directory for downloaded pcap files
 └── images/
     ├── tcpdump/              # Tcpdump image Dockerfile & create script
@@ -126,6 +162,3 @@ Once deployed, access the UI via the external IP of the service.
 - The tcpdump jobs run with `hostPID: true` and require `privileged: true`
 - The Web UI pod auto-discovers its own namespace for orchestrating jobs
 - RBAC permissions are scoped properly for reading pods and creating jobs
-
-
-
