@@ -39,7 +39,8 @@ create() {
 
 destroy() {
     CWD=${PWD}
-    cd terraform    
+    cd terraform   
+    tofu init 
     tofu destroy --auto-approve
     cd ${CWD}
 }
