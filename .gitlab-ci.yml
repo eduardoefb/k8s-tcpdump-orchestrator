@@ -2,6 +2,7 @@
 
 
 stages:
+  - cleanup_stage
   - deploy_stage
   - terminate_stage
   
