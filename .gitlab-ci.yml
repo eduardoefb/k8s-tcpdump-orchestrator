@@ -39,4 +39,4 @@ terminate:
     - bash run.sh destroy
   only:
     - main
-  when: manuals
+  when: manual
