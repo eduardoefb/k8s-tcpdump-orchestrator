@@ -9,6 +9,8 @@ usage() {
 
 build() {
     CWD=${PWD}
+    echo $HARBOR_PASS | podman login ${HARBOR_URL} --username $HARBOR_USER --password-stdin
+    podman login ${HARBOR_URL} 
     cd images/tcpdump
     bash create_image.sh
     cd ${CWD}
