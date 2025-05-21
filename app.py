@@ -71,7 +71,7 @@ HTML_POD_SELECTION = """
   {% for pod in pods %}
     <label><input type="checkbox" name="pod" value="{{ pod }}"> {{ pod }}</label>
   {% endfor %}
-  <input type="hidden" name="namespace" value="{{ namespace }}">
+  <input type="hidden" name="namespace" value="{{ namespace }}">  
   <input type="submit" value="Start Tcpdump on Selected Pods">
 </form>
 <a href="/">⬅ Back</a>
