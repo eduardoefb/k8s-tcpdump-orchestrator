@@ -162,3 +162,4 @@ This will:
 - The tcpdump jobs run with `hostPID: true` and require `privileged: true`
 - The Web UI pod auto-discovers its own namespace for orchestrating jobs
 - RBAC permissions are scoped properly for reading pods and creating jobs
+
