@@ -9,6 +9,9 @@ app = Flask(__name__)
 
 TMP_DIR = os.path.abspath("traces")
 MONITOR_SCRIPT = "./monitor.sh"
+CONFIG_FILE = os.path.abspath("tcpdump_config.txt")
+DEFAULT_CONDITION = "-i any -s 0 port 8080"
+DEFAULT_TIMEOUT = 300
 
 os.makedirs(TMP_DIR, exist_ok=True)
 
@@ -52,6 +55,19 @@ HTML_MENU = """
   </select>
   <input type="submit" value="List Pods">
 </form>
+
+<form method="post" action="/set_condition">
+  <h3>2. Monitoring condition</h3>
+  <input type="text" name="condition" value="{{ condition }}">
+  <input type="submit" value="Update">
+</form>
+
+<form method="post" action="/set_timeout">
+  <h3>3. Monitoring timeout (seconds)</h3>
+  <input type="text" name="mon_timeout" value="{{ mon_timeout }}">
+  <input type="submit" value="Update">
+</form>
+
 <form method="post" action="/status">
   <input type="submit" value="Check Status">
 </form>
@@ -76,6 +92,47 @@ HTML_POD_SELECTION = """
 </form>
 <a href="/">⬅ Back</a>
 """
+
+def get_param(param):
+    if not os.path.exists(CONFIG_FILE):
+        return None  # Arquivo não existe, não há parâmetro
+
+    with open(CONFIG_FILE, "r") as f:
+        for line in f:
+            if line.startswith(f"{param}="):
+                # Retorna o valor após o '=' sem espaços e com quebra de linha removida
+                return line.split("=", 1)[1].strip()
+    
+    return None  # Parâmetro não encontrado
+
+def set_param(param, value):
+    new_line = f"{param}={value}\n"
+    
+    if not os.path.exists(CONFIG_FILE):
+        # Arquivo não existe, cria e escreve
+        with open(CONFIG_FILE, "w") as f:
+            f.write(new_line)
+    else:
+        # Arquivo existe, lê todas as linhas
+        with open(CONFIG_FILE, "r") as f:
+            lines = f.readlines()
+        
+        # Verifica se existe a linha com o parâmetro
+        param_found = False
+        for i, line in enumerate(lines):
+            if line.startswith(f"{param}="):
+                lines[i] = new_line
+                param_found = True
+                break
+        
+        # Se não encontrou, adiciona no final
+        if not param_found:
+            lines.append(new_line)
+        
+        # Escreve novamente o conteúdo atualizado
+        with open(CONFIG_FILE, "w") as f:
+            f.writelines(lines)
+
 
 def wrap(content):
     return render_template_string(HTML_BASE % content)
@@ -103,10 +160,38 @@ def get_job_namespace(default_namespace="default"):
     except FileNotFoundError:
         return default_namespace
 
+def set_default_param():
+    if not os.path.exists(CONFIG_FILE):
+        with open(CONFIG_FILE, "w") as f:
+            f.write(f"condition={DEFAULT_CONDITION}\n")
+            f.write(f"timeout={DEFAULT_TIMEOUT}\n")
+        return DEFAULT_CONDITION
+    with open(CONFIG_FILE, "r") as f:
+        return f.read().strip()
+
 
 @app.route("/", methods=["GET", "POST"])
 def index():
-    return wrap(render_template_string(HTML_MENU, namespaces=get_namespaces(), output=""))
+    set_default_param()
+    return wrap(render_template_string(
+        HTML_MENU, namespaces=get_namespaces(), output="", condition=get_param(param="condition"), mon_timeout=get_param(param="timeout")
+    ))
+
+@app.route("/set_condition", methods=["POST"])
+def set_condition_route():
+    new_condition = request.form['condition']
+    set_param(param="condition", value=new_condition)
+    return wrap(render_template_string(
+        HTML_MENU, namespaces=get_namespaces(), output=f"condition updated to {new_condition}", condition=new_condition, mon_timeout=get_param(param="timeout")
+    ))
+
+@app.route("/set_timeout", methods=["POST"])
+def set_timeout_route():
+    new_timeout = request.form['mon_timeout']    
+    set_param(param="timeout", value=new_timeout)
+    return wrap(render_template_string(
+        HTML_MENU, namespaces=get_namespaces(), output=f"timeout updated to {new_timeout}", mon_timeout=new_timeout, condition=get_param(param="condition")
+    ))    
 
 @app.route("/start", methods=["POST"])
 def list_pods():
@@ -117,23 +202,31 @@ def list_pods():
 @app.route("/launch", methods=["POST"])
 def launch_jobs():
     namespace = request.form['namespace']
-    job_namespace = get_job_namespace()    
+    job_namespace = get_job_namespace()
     selected_pods = request.form.getlist('pod')
+    condition = get_param(param="condition")
+    mon_timeout = get_param(param="timeout")
     outputs = []
     for pod in selected_pods:
         cmd = f"{MONITOR_SCRIPT} --pod-name {pod} --namespace {namespace} --job-namespace {job_namespace}"
         outputs.append(run_cmd(cmd))
-    return wrap(render_template_string(HTML_MENU, namespaces=get_namespaces(), output="\n".join(outputs)))
+    return wrap(render_template_string(
+        HTML_MENU, namespaces=get_namespaces(), output="\n".join(outputs), condition=condition, mon_timeout=mon_timeout
+    ))
 
 @app.route("/status", methods=["POST"])
 def status():
     output = run_cmd(f"{MONITOR_SCRIPT} --status")
-    return wrap(render_template_string(HTML_MENU, namespaces=get_namespaces(), output=output))
+    return wrap(render_template_string(
+        HTML_MENU, namespaces=get_namespaces(), output=output, condition=get_param(param="condition"), mon_timeout=get_param(param="timeout")
+    ))
 
 @app.route("/clear", methods=["POST"])
 def clear():
     output = run_cmd(f"{MONITOR_SCRIPT} --clear-files")
-    return wrap(render_template_string(HTML_MENU, namespaces=get_namespaces(), output=output))    
+    return wrap(render_template_string(
+        HTML_MENU, namespaces=get_namespaces(), output=output, condition=get_param(param="condition"), mon_timeout=get_param(param="timeout")
+    ))
 
 @app.route("/stop", methods=["POST"])
 def stop():
@@ -142,7 +235,9 @@ def stop():
     output = run_cmd(f"{MONITOR_SCRIPT} --stop-tcpdump")
     time.sleep(5)
     output += run_cmd(f"{MONITOR_SCRIPT} --get-files")
-    return wrap(render_template_string(HTML_MENU, namespaces=get_namespaces(), output=output))
+    return wrap(render_template_string(
+        HTML_MENU, namespaces=get_namespaces(), output=output, condition=get_param(param="condition"), mon_timeout=get_param(param="timeout")
+    ))
 
 @app.route("/files")
 def list_files():

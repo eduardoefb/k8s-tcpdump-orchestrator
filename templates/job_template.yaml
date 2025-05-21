@@ -31,9 +31,9 @@ spec:
         - name: NAMESPACE
           value: "${TARGET_NAMESPACE}"
         - name: CONDITION
-          value: "-i any -s 0"
+          value: "${TCPDUMP_CONDITION}"
         - name: TIMEOUT
-          value: "900"
+          value: "${TCPDUMP_TIMEOUT}"
         securityContext:
           privileged: true
         volumeMounts:

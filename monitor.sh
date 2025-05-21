@@ -9,6 +9,7 @@ export TMP_JOB_YAML="$(mktemp)"
 export TMP_DIR="${PWD}/traces"
 export MODE=""
 export JOB_LIST="jobs.list"
+export TCPDUMP_CONFIG_FILE="tcpdump_config.txt"
 
 
 mkdir -p ${TMP_DIR}
@@ -43,6 +44,15 @@ add_to_job_list() {
 }
 
 create_job() {
+    echo "[INFO] Checking tcpdump configuration..."
+    condition="-i any -s 0"
+    mon_timeout=120
+    if [ -f ${TCPDUMP_CONFIG_FILE} ]; then
+       condition=`grep ^condition ${TCPDUMP_CONFIG_FILE} | awk -F '=' '{print $NF}'`
+       mon_timeout=`grep ^timeout ${TCPDUMP_CONFIG_FILE} | awk -F '=' '{print $NF}'`
+    fi
+    echo "[INFO] Condition: ${condition}"
+    echo "[INFO] Timeout: ${mon_timeout}"
     echo "[INFO] Fetching node name for pod '${POD_NAME}' in namespace '${TARGET_NAMESPACE}'..."
     NODE_NAME=$(kubectl get pod "${POD_NAME}" -n "${TARGET_NAMESPACE}" -o jsonpath='{.spec.nodeName}')
     JOB_NAME="${POD_NAME}-tcpdump"
@@ -54,6 +64,8 @@ create_job() {
     JOB_NAMESPACE="${JOB_NAMESPACE}" \
     NODE_NAME="${NODE_NAME}" \
     JOB_NAME="${JOB_NAME}" \
+    TCPDUMP_CONDITION="${condition}" \
+    TCPDUMP_TIMEOUT="${mon_timeout}" \
     envsubst < "${TEMPLATE}" > "${TMP_JOB_YAML}"
 
     kubectl apply -n "${JOB_NAMESPACE}" -f "${TMP_JOB_YAML}"
