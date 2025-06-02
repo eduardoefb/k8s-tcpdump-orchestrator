@@ -11,11 +11,15 @@ spec:
   template:
     metadata:
       labels:
-        app: {{ .Release.Name }}-orchestrator  
+        app: {{ .Release.Name }}-orchestrator
+      {{- if .Values.istio.enabled }}
+      annotations:
+        sidecar.istio.io/inject: "true"
+      {{- end }}
     spec:      
       serviceAccountName: {{ .Release.Name }}-service-account
       imagePullSecrets:
-        - name: {{ .Values.imagePullSecret }}      
+        - name: {{ .Values.imagePullSecret }}
       containers:
         - name: app
           image: {{ .Values.image.registryUrl }}/{{ .Values.image.orchestratorImageName }}

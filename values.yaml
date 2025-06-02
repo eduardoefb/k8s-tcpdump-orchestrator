@@ -17,3 +17,5 @@ image:
 
 imagePullSecret: tcpdump-orchestrator
 
+istio:
+  enabled: true

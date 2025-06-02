@@ -6,7 +6,11 @@ metadata:
 spec:
   selector:
     app: {{ .Release.Name }}-orchestrator
+  {{- if .Values.istio.enabled }}
   type: ClusterIP
+  {{- else }}
+  type: LoadBalancer
+  {{- end }}
   ports:
     - protocol: TCP
       port: 80
