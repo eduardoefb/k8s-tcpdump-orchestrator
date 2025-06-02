@@ -1,8 +1,6 @@
 from flask import Flask, request, redirect, url_for, render_template_string, send_from_directory
 import subprocess
 import os
-import tempfile
-import threading
 import time
 
 app = Flask(__name__)
@@ -15,8 +13,6 @@ DEFAULT_TIMEOUT = 300
 
 os.makedirs(TMP_DIR, exist_ok=True)
 
-tcpdump_running = False
-
 HTML_BASE = """
 <!doctype html>
 <html lang="en">
@@ -25,22 +21,122 @@ HTML_BASE = """
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>K8s Tcpdump Orchestrator</title>
   <style>
-    body { font-family: Arial, sans-serif; margin: 2em; background-color: #f4f4f4; color: #333; }
-    h2 { color: #0d6efd; }
-    form { margin-bottom: 2em; background: #fff; padding: 1em; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
-    input[type=text], select { padding: 0.5em; width: 300px; margin-bottom: 1em; }
-    input[type=submit] { padding: 0.5em 1em; background-color: #0d6efd; border: none; color: #fff; border-radius: 4px; cursor: pointer; }
-    input[type=submit]:hover { background-color: #0b5ed7; }
-    pre { background-color: #222; color: #0f0; padding: 1em; overflow-x: auto; border-radius: 6px; }
+    :root {
+      --bg-color: #f4f4f4;
+      --text-color: #333;
+      --card-bg: #fff;
+      --button-bg: #0d6efd;
+      --button-hover: #0b5ed7;
+      --pre-bg: #222;
+      --pre-color: #0f0;
+    }
+
+    body.dark {
+      --bg-color: #1e1e1e;
+      --text-color: #eee;
+      --card-bg: #2c2c2c;
+      --button-bg: #5a5aff;
+      --button-hover: #4a4aff;
+      --pre-bg: #000;
+      --pre-color: #0f0;
+    }
+
+    body {
+      font-family: Arial, sans-serif;
+      margin: 2em;
+      background-color: var(--bg-color);
+      color: var(--text-color);
+      transition: background-color 0.3s, color 0.3s;
+    }
+
+    h2 { color: var(--button-bg); }
+
+    form {
+      margin-bottom: 2em;
+      background: var(--card-bg);
+      padding: 1em;
+      border-radius: 8px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+
+    input[type=text], select {
+      padding: 0.5em;
+      width: 300px;
+      margin-bottom: 1em;
+      background-color: var(--bg-color);
+      color: var(--text-color);
+      border: 1px solid #999;
+    }
+
+    input[type=submit], button {
+      padding: 0.5em 1em;
+      background-color: var(--button-bg);
+      border: none;
+      color: #fff;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+
+    input[type=submit]:hover, button:hover {
+      background-color: var(--button-hover);
+    }
+
+    pre {
+      background-color: var(--pre-bg);
+      color: var(--pre-color);
+      padding: 1em;
+      overflow-x: auto;
+      border-radius: 6px;
+    }
+
     ul { padding-left: 1.2em; }
-    a { color: #0d6efd; text-decoration: none; }
-    a:hover { text-decoration: underline; }
-    label { display: block; margin-bottom: 0.5em; }
+
+    a {
+      color: var(--button-bg);
+      text-decoration: none;
+    }
+
+    a:hover {
+      text-decoration: underline;
+    }
+
+    label {
+      display: block;
+      margin-bottom: 0.5em;
+    }
+
+    .toggle-btn {
+      float: right;
+      margin-top: -2em;
+      margin-bottom: 1em;
+    }
   </style>
 </head>
 <body>
+<div class="toggle-btn">
+  <button onclick="toggleTheme()" id="themeToggleBtn">🌙 Dark Mode</button>
+</div>
+
 <h2>K8s Tcpdump Orchestrator</h2>
 %s
+
+<script>
+  function applyTheme(dark) {
+    document.body.classList.toggle("dark", dark);
+    const btn = document.getElementById("themeToggleBtn");
+    btn.textContent = dark ? "🌞 Light Mode" : "🌙 Dark Mode";
+    localStorage.setItem("theme", dark ? "dark" : "light");
+  }
+
+  function toggleTheme() {
+    const isDark = document.body.classList.contains("dark");
+    applyTheme(!isDark);
+  }
+
+  const savedTheme = localStorage.getItem("theme");
+  if (savedTheme === "dark") applyTheme(true);
+</script>
+
 </body>
 </html>
 """
@@ -68,15 +164,9 @@ HTML_MENU = """
   <input type="submit" value="Update">
 </form>
 
-<form method="post" action="/status">
-  <input type="submit" value="Check Status">
-</form>
-<form method="post" action="/clear">
-  <input type="submit" value="Clear Files">
-</form>
-<form method="post" action="/stop">
-  <input type="submit" value="Stop and Download All">
-</form>
+<form method="post" action="/status"><input type="submit" value="Check Status"></form>
+<form method="post" action="/clear"><input type="submit" value="Clear Files"></form>
+<form method="post" action="/stop"><input type="submit" value="Stop and Download All"></form>
 <a href="/files">📂 View Captured PCAP Files</a>
 <pre>{{output}}</pre>
 """
@@ -95,44 +185,29 @@ HTML_POD_SELECTION = """
 
 def get_param(param):
     if not os.path.exists(CONFIG_FILE):
-        return None  # Arquivo não existe, não há parâmetro
-
+        return None
     with open(CONFIG_FILE, "r") as f:
         for line in f:
             if line.startswith(f"{param}="):
-                # Retorna o valor após o '=' sem espaços e com quebra de linha removida
                 return line.split("=", 1)[1].strip()
-    
-    return None  # Parâmetro não encontrado
+    return None
 
 def set_param(param, value):
     new_line = f"{param}={value}\n"
-    
     if not os.path.exists(CONFIG_FILE):
-        # Arquivo não existe, cria e escreve
         with open(CONFIG_FILE, "w") as f:
             f.write(new_line)
     else:
-        # Arquivo existe, lê todas as linhas
         with open(CONFIG_FILE, "r") as f:
             lines = f.readlines()
-        
-        # Verifica se existe a linha com o parâmetro
-        param_found = False
         for i, line in enumerate(lines):
             if line.startswith(f"{param}="):
                 lines[i] = new_line
-                param_found = True
                 break
-        
-        # Se não encontrou, adiciona no final
-        if not param_found:
+        else:
             lines.append(new_line)
-        
-        # Escreve novamente o conteúdo atualizado
         with open(CONFIG_FILE, "w") as f:
             f.writelines(lines)
-
 
 def wrap(content):
     return render_template_string(HTML_BASE % content)
@@ -153,9 +228,8 @@ def get_pods(namespace):
     return sorted(result.stdout.strip("'").split())
 
 def get_job_namespace(default_namespace="default"):
-    path = "/var/run/secrets/kubernetes.io/serviceaccount/namespace"
     try:
-        with open(path, "r") as f:
+        with open("/var/run/secrets/kubernetes.io/serviceaccount/namespace", "r") as f:
             return f.read().strip()
     except FileNotFoundError:
         return default_namespace
@@ -165,33 +239,41 @@ def set_default_param():
         with open(CONFIG_FILE, "w") as f:
             f.write(f"condition={DEFAULT_CONDITION}\n")
             f.write(f"timeout={DEFAULT_TIMEOUT}\n")
-        return DEFAULT_CONDITION
-    with open(CONFIG_FILE, "r") as f:
-        return f.read().strip()
-
 
 @app.route("/", methods=["GET", "POST"])
 def index():
     set_default_param()
     return wrap(render_template_string(
-        HTML_MENU, namespaces=get_namespaces(), output="", condition=get_param(param="condition"), mon_timeout=get_param(param="timeout")
+        HTML_MENU,
+        namespaces=get_namespaces(),
+        output="",
+        condition=get_param("condition"),
+        mon_timeout=get_param("timeout")
     ))
 
 @app.route("/set_condition", methods=["POST"])
 def set_condition_route():
     new_condition = request.form['condition']
-    set_param(param="condition", value=new_condition)
+    set_param("condition", new_condition)
     return wrap(render_template_string(
-        HTML_MENU, namespaces=get_namespaces(), output=f"condition updated to {new_condition}", condition=new_condition, mon_timeout=get_param(param="timeout")
+        HTML_MENU,
+        namespaces=get_namespaces(),
+        output=f"condition updated to {new_condition}",
+        condition=new_condition,
+        mon_timeout=get_param("timeout")
     ))
 
 @app.route("/set_timeout", methods=["POST"])
 def set_timeout_route():
-    new_timeout = request.form['mon_timeout']    
-    set_param(param="timeout", value=new_timeout)
+    new_timeout = request.form['mon_timeout']
+    set_param("timeout", new_timeout)
     return wrap(render_template_string(
-        HTML_MENU, namespaces=get_namespaces(), output=f"timeout updated to {new_timeout}", mon_timeout=new_timeout, condition=get_param(param="condition")
-    ))    
+        HTML_MENU,
+        namespaces=get_namespaces(),
+        output=f"timeout updated to {new_timeout}",
+        mon_timeout=new_timeout,
+        condition=get_param("condition")
+    ))
 
 @app.route("/start", methods=["POST"])
 def list_pods():
@@ -204,39 +286,53 @@ def launch_jobs():
     namespace = request.form['namespace']
     job_namespace = get_job_namespace()
     selected_pods = request.form.getlist('pod')
-    condition = get_param(param="condition")
-    mon_timeout = get_param(param="timeout")
+    condition = get_param("condition")
+    mon_timeout = get_param("timeout")
     outputs = []
     for pod in selected_pods:
         cmd = f"{MONITOR_SCRIPT} --pod-name {pod} --namespace {namespace} --job-namespace {job_namespace}"
         outputs.append(run_cmd(cmd))
     return wrap(render_template_string(
-        HTML_MENU, namespaces=get_namespaces(), output="\n".join(outputs), condition=condition, mon_timeout=mon_timeout
+        HTML_MENU,
+        namespaces=get_namespaces(),
+        output="\n".join(outputs),
+        condition=condition,
+        mon_timeout=mon_timeout
     ))
 
 @app.route("/status", methods=["POST"])
 def status():
     output = run_cmd(f"{MONITOR_SCRIPT} --status")
     return wrap(render_template_string(
-        HTML_MENU, namespaces=get_namespaces(), output=output, condition=get_param(param="condition"), mon_timeout=get_param(param="timeout")
+        HTML_MENU,
+        namespaces=get_namespaces(),
+        output=output,
+        condition=get_param("condition"),
+        mon_timeout=get_param("timeout")
     ))
 
 @app.route("/clear", methods=["POST"])
 def clear():
     output = run_cmd(f"{MONITOR_SCRIPT} --clear-files")
     return wrap(render_template_string(
-        HTML_MENU, namespaces=get_namespaces(), output=output, condition=get_param(param="condition"), mon_timeout=get_param(param="timeout")
+        HTML_MENU,
+        namespaces=get_namespaces(),
+        output=output,
+        condition=get_param("condition"),
+        mon_timeout=get_param("timeout")
     ))
 
 @app.route("/stop", methods=["POST"])
 def stop():
-    global tcpdump_running
-    tcpdump_running = False
     output = run_cmd(f"{MONITOR_SCRIPT} --stop-tcpdump")
     time.sleep(5)
     output += run_cmd(f"{MONITOR_SCRIPT} --get-files")
     return wrap(render_template_string(
-        HTML_MENU, namespaces=get_namespaces(), output=output, condition=get_param(param="condition"), mon_timeout=get_param(param="timeout")
+        HTML_MENU,
+        namespaces=get_namespaces(),
+        output=output,
+        condition=get_param("condition"),
+        mon_timeout=get_param("timeout")
     ))
 
 @app.route("/files")
@@ -247,7 +343,7 @@ def list_files():
             files.append(os.path.relpath(os.path.join(root, name), TMP_DIR))
     file_list = "<h3>Captured PCAP Files</h3><ul>"
     for f in files:
-        file_list += f"<li><a href='/download/{f}'>{f}</a></li>"
+        file_list += f"<li><a href='/download/%s'>%s</a></li>" % (f, f)
     file_list += "</ul><a href='/'>⬅ Back</a>"
     return wrap(file_list)
 

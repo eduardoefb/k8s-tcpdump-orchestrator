@@ -1,3 +1,3 @@
 export REGISTRY_URL="registry.k8slab.int/tcpdump"
-export TCPDUMP_IMAGE_NAME="tcpdump:0.0.6"
-export ORCHESTRATOR_IMAGE_NAME="orchestrator:0.0.6"
+export TCPDUMP_IMAGE_NAME="tcpdump:0.1.0"
+export ORCHESTRATOR_IMAGE_NAME="orchestrator:0.1.0"

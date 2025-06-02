@@ -8,8 +8,8 @@ orchestrator:
 
 image:
   registryUrl: registry.k8slab.int/tcpdump
-  orchestratorImageName: orchestrator:0.0.6
-  tcpdumpImageName: tcpdump:0.0.6
+  orchestratorImageName: orchestrator:0.1.0
+  tcpdumpImageName: tcpdump:0.1.0
 
   #pullPolicy: IfNotPresent
   pullPolicy: Always
