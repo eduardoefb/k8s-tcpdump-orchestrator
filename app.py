@@ -1,4 +1,4 @@
-from flask import Flask, request, redirect, url_for, render_template_string, send_from_directory
+from flask import Flask, request, render_template_string, send_from_directory
 import subprocess
 import os
 import time
@@ -20,6 +20,15 @@ HTML_BASE = """
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>K8s Tcpdump Orchestrator</title>
+  <script>
+    (function() {
+      try {
+        if (localStorage.getItem("theme") === "dark") {
+          document.documentElement.classList.add("dark");
+        }
+      } catch(e) {}
+    })();
+  </script>
   <style>
     :root {
       --bg-color: #f4f4f4;
@@ -31,7 +40,7 @@ HTML_BASE = """
       --pre-color: #0f0;
     }
 
-    body.dark {
+    html.dark {
       --bg-color: #1e1e1e;
       --text-color: #eee;
       --card-bg: #2c2c2c;
@@ -113,30 +122,29 @@ HTML_BASE = """
   </style>
 </head>
 <body>
-<div class="toggle-btn">
-  <button onclick="toggleTheme()" id="themeToggleBtn">🌙 Dark Mode</button>
-</div>
+  <div class="toggle-btn">
+    <button onclick="toggleTheme()" id="themeToggleBtn">🌙 Dark Mode</button>
+  </div>
 
-<h2>K8s Tcpdump Orchestrator</h2>
-%s
+  <h2>K8s Tcpdump Orchestrator</h2>
+  %s
 
-<script>
-  function applyTheme(dark) {
-    document.body.classList.toggle("dark", dark);
-    const btn = document.getElementById("themeToggleBtn");
-    btn.textContent = dark ? "🌞 Light Mode" : "🌙 Dark Mode";
-    localStorage.setItem("theme", dark ? "dark" : "light");
-  }
+  <script>
+    function applyTheme(dark) {
+      document.documentElement.classList.toggle("dark", dark);
+      const btn = document.getElementById("themeToggleBtn");
+      btn.textContent = dark ? "🌞 Light Mode" : "🌙 Dark Mode";
+      localStorage.setItem("theme", dark ? "dark" : "light");
+    }
 
-  function toggleTheme() {
-    const isDark = document.body.classList.contains("dark");
-    applyTheme(!isDark);
-  }
+    function toggleTheme() {
+      const isDark = document.documentElement.classList.contains("dark");
+      applyTheme(!isDark);
+    }
 
-  const savedTheme = localStorage.getItem("theme");
-  if (savedTheme === "dark") applyTheme(true);
-</script>
-
+    const savedTheme = localStorage.getItem("theme");
+    if (savedTheme === "dark") applyTheme(true);
+  </script>
 </body>
 </html>
 """
@@ -177,7 +185,7 @@ HTML_POD_SELECTION = """
   {% for pod in pods %}
     <label><input type="checkbox" name="pod" value="{{ pod }}"> {{ pod }}</label>
   {% endfor %}
-  <input type="hidden" name="namespace" value="{{ namespace }}">  
+  <input type="hidden" name="namespace" value="{{ namespace }}">
   <input type="submit" value="Start Tcpdump on Selected Pods">
 </form>
 <a href="/">⬅ Back</a>
