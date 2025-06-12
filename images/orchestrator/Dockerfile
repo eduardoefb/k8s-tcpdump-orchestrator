@@ -12,9 +12,13 @@ RUN apt-get update && apt-get install -y curl iputils-ping procps gettext wiresh
 
 RUN mkdir /opt/templates
 
-RUN cd /tmp/ && curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl" && \
-    mv /tmp/kubectl /usr/local/bin/kubectl && \
-    chmod +x /usr/local/bin/kubectl
+RUN bash -c '\
+    set -e; \
+    STABLE_VERSION=$(curl -fsSL https://dl.k8s.io/release/stable.txt || echo "v1.31.1"); \
+    echo "Using Kubernetes version: $STABLE_VERSION"; \
+    curl -LO "https://dl.k8s.io/release/${STABLE_VERSION}/bin/linux/amd64/kubectl"; \
+    mv kubectl /usr/local/bin/kubectl; \
+    chmod +x /usr/local/bin/kubectl'
 
 
 EXPOSE 5000
